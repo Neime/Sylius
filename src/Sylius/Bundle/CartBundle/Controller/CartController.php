@@ -13,7 +13,7 @@ namespace Sylius\Bundle\CartBundle\Controller;
 
 use Sylius\Bundle\CartBundle\Event\CartEvent;
 use Sylius\Bundle\CartBundle\Event\FlashEvent;
-use Sylius\Bundle\CartBundle\SyliusCartEvents;
+use Sylius\Component\Cart\SyliusCartEvents;
 use Symfony\Component\EventDispatcher\GenericEvent;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -24,7 +24,7 @@ use Symfony\Component\HttpFoundation\Response;
  * Resource controller class provides several actions and methods for creating
  * pages and api for your cart system.
  *
- * @author Paweł Jędrzejewski <pjedrzejewski@diweb.pl>
+ * @author Paweł Jędrzejewski <pawel@sylius.org>
  */
 class CartController extends Controller
 {
@@ -39,10 +39,16 @@ class CartController extends Controller
         $cart = $this->getCurrentCart();
         $form = $this->createForm('sylius_cart', $cart);
 
-        return $this->renderResponse('summary.html', array(
-            'cart' => $cart,
-            'form' => $form->createView()
-        ));
+        $view = $this
+            ->view()
+            ->setTemplate($this->config->getTemplate('summary.html'))
+            ->setData(array(
+                'cart' => $cart,
+                'form' => $form->createView()
+            ))
+        ;
+
+        return $this->handleView($view);
     }
 
     /**
@@ -61,25 +67,33 @@ class CartController extends Controller
         $cart = $this->getCurrentCart();
         $form = $this->createForm('sylius_cart', $cart);
 
-        if ($request->isMethod('POST') && $form->submit($request)->isValid()) {
+        if ($form->handleRequest($request)->isValid()) {
             $event = new CartEvent($cart);
             $event->isFresh(true);
 
-            $this->dispatchEvent(SyliusCartEvents::CART_CHANGE, new GenericEvent($cart));
+            $eventDispatcher = $this->getEventDispatcher();
+
+            $eventDispatcher->dispatch(SyliusCartEvents::CART_CHANGE, new GenericEvent($cart));
 
             // Update models
-            $this->dispatchEvent(SyliusCartEvents::CART_SAVE_INITIALIZE, $event);
+            $eventDispatcher->dispatch(SyliusCartEvents::CART_SAVE_INITIALIZE, $event);
 
             // Write flash message
-            $this->dispatchEvent(SyliusCartEvents::CART_SAVE_COMPLETED, new FlashEvent());
+            $eventDispatcher->dispatch(SyliusCartEvents::CART_SAVE_COMPLETED, new FlashEvent());
 
             return $this->redirectToCartSummary();
         }
 
-        return $this->renderResponse('summary.html', array(
-            'cart' => $cart,
-            'form' => $form->createView()
-        ));
+        $view = $this
+            ->view()
+            ->setTemplate($this->config->getTemplate('summary.html'))
+            ->setData(array(
+                'cart' => $cart,
+                'form' => $form->createView()
+            ))
+        ;
+
+        return $this->handleView($view);
     }
 
     /**
@@ -90,11 +104,13 @@ class CartController extends Controller
      */
     public function clearAction()
     {
+        $eventDispatcher = $this->getEventDispatcher();
+
         // Update models
-        $this->dispatchEvent(SyliusCartEvents::CART_CLEAR_INITIALIZE, new CartEvent($this->getCurrentCart()));
+        $eventDispatcher->dispatch(SyliusCartEvents::CART_CLEAR_INITIALIZE, new CartEvent($this->getCurrentCart()));
 
         // Write flash message
-        $this->dispatchEvent(SyliusCartEvents::CART_CLEAR_COMPLETED, new FlashEvent());
+        $eventDispatcher->dispatch(SyliusCartEvents::CART_CLEAR_COMPLETED, new FlashEvent());
 
         return $this->redirectToCartSummary();
     }

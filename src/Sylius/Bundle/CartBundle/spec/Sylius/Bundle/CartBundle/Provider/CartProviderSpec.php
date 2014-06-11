@@ -11,22 +11,26 @@
 
 namespace spec\Sylius\Bundle\CartBundle\Provider;
 
+use Doctrine\Common\Persistence\ObjectManager;
 use PhpSpec\ObjectBehavior;
 use Prophecy\Argument;
-use Sylius\Bundle\CartBundle\SyliusCartEvents;
+use Sylius\Component\Cart\Model\CartInterface;
+use Sylius\Component\Cart\Storage\CartStorageInterface;
+use Sylius\Component\Cart\SyliusCartEvents;
+use Sylius\Component\Resource\Repository\RepositoryInterface;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
 /**
- * @author Paweł Jędrzejewski <pjedrzejewski@diweb.pl>
+ * @author Paweł Jędrzejewski <pawel@sylius.org>
  */
 class CartProviderSpec extends ObjectBehavior
 {
-    /**
-     * @param Sylius\Bundle\CartBundle\Storage\CartStorageInterface      $storage
-     * @param Doctrine\Common\Persistence\ObjectManager                  $manager
-     * @param Sylius\Bundle\ResourceBundle\Model\RepositoryInterface     $repository
-     * @param Symfony\Component\EventDispatcher\EventDispatcherInterface $eventDispatcher
-     */
-    function let($storage, $manager, $repository, $eventDispatcher)
+    function let(
+        CartStorageInterface $storage,
+        ObjectManager $manager,
+        RepositoryInterface $repository,
+        EventDispatcherInterface $eventDispatcher
+    )
     {
         $this->beConstructedWith($storage, $manager, $repository, $eventDispatcher);
     }
@@ -38,13 +42,15 @@ class CartProviderSpec extends ObjectBehavior
 
     function it_implements_Sylius_cart_provider_interface()
     {
-        $this->shouldImplement('Sylius\Bundle\CartBundle\Provider\CartProviderInterface');
+        $this->shouldImplement('Sylius\Component\Cart\Provider\CartProviderInterface');
     }
 
-    /**
-     * @param Sylius\Bundle\CartBundle\Model\CartInterface $cart
-     */
-    function it_looks_for_cart_by_identifier_if_any_in_storage($storage, $repository, $eventDispatcher, $cart)
+    function it_looks_for_cart_by_identifier_if_any_in_storage(
+        $storage,
+        $repository,
+        $eventDispatcher,
+        CartInterface $cart
+    )
     {
         $storage->getCurrentCartIdentifier()->willReturn(3);
         $repository->find(3)->shouldBeCalled()->willReturn($cart);
@@ -53,10 +59,12 @@ class CartProviderSpec extends ObjectBehavior
         $this->getCart()->shouldReturn($cart);
     }
 
-    /**
-     * @param Sylius\Bundle\CartBundle\Model\CartInterface $cart
-     */
-    function it_creates_new_cart_if_there_is_no_identifier_in_storage($storage, $repository, $eventDispatcher, $cart)
+    function it_creates_new_cart_if_there_is_no_identifier_in_storage(
+        $storage,
+        $repository,
+        $eventDispatcher,
+        CartInterface $cart
+    )
     {
         $storage->getCurrentCartIdentifier()->willReturn(null);
         $repository->createNew()->willReturn($cart);
@@ -65,10 +73,12 @@ class CartProviderSpec extends ObjectBehavior
         $this->getCart()->shouldReturn($cart);
     }
 
-    /**
-     * @param Sylius\Bundle\CartBundle\Model\CartInterface $cart
-     */
-    function it_creates_new_cart_if_identifier_is_wrong($storage, $repository, $eventDispatcher, $cart)
+    function it_creates_new_cart_if_identifier_is_wrong(
+        $storage,
+        $repository,
+        $eventDispatcher,
+        CartInterface $cart
+    )
     {
         $storage->getCurrentCartIdentifier()->willReturn(7);
         $repository->find(7)->shouldBeCalled()->willReturn(null);
@@ -78,10 +88,12 @@ class CartProviderSpec extends ObjectBehavior
         $this->getCart()->shouldReturn($cart);
     }
 
-    /**
-     * @param Sylius\Bundle\CartBundle\Model\CartInterface $cart
-     */
-    function it_resets_current_cart_identifier_in_storage_when_abandoning_cart($storage, $repository, $storage, $eventDispatcher, $cart)
+    function it_resets_current_cart_identifier_in_storage_when_abandoning_cart(
+        $storage,
+        $storage,
+        $eventDispatcher,
+        CartInterface $cart
+    )
     {
         $this->setCart($cart);
         $storage->setCurrentCartIdentifier($cart)->shouldBeCalled();
@@ -92,13 +104,34 @@ class CartProviderSpec extends ObjectBehavior
         $this->abandonCart();
     }
 
-    /**
-     * @param Sylius\Bundle\CartBundle\Model\CartInterface $cart
-     */
-    function it_sets_current_cart_identifier_when_setting_cart($storage, $cart)
+    function it_sets_current_cart_identifier_when_setting_cart($storage, CartInterface $cart)
     {
         $storage->setCurrentCartIdentifier($cart)->shouldBeCalled();
 
         $this->setCart($cart);
+    }
+
+    function it_initializes_cart_while_validating_existence_and_if_there_is_no_identifier_in_storage(
+        $storage,
+        $repository,
+        CartInterface $cart
+    )
+    {
+        $storage->getCurrentCartIdentifier()->willReturn(null);
+        $repository->find(Argument::any())->shouldNotBeCalled();
+
+        $this->hasCart()->shouldReturn(false);
+    }
+
+    function it_initializes_cart_while_validating_existence_and_if_there_is_identifier_in_storage(
+        $storage,
+        $repository,
+        CartInterface $cart
+    )
+    {
+        $storage->getCurrentCartIdentifier()->willReturn(666);
+        $repository->find(666)->shouldBeCalled()->willReturn($cart);
+
+        $this->hasCart()->shouldReturn(true);
     }
 }

@@ -10,6 +10,7 @@ sylius_backend_order_index:
             template: SyliusWebBundle:Backend/Order:index.html.twig
             method: createFilterPaginator
             arguments: [$criteria, $sorting, $deleted]
+            paginate: 20
 
 sylius_backend_order_create:
     pattern: /new
@@ -38,14 +39,6 @@ sylius_backend_order_delete:
             template: SyliusWebBundle:Backend/Misc:delete.html.twig
             redirect: sylius_backend_order_index
 
-sylius_backend_order_filter_form:
-    pattern: /filter-form
-    methods: [GET]
-    defaults:
-        _controller: sylius.controller.order:filterFormAction
-        _sylius:
-            template: SyliusWebBundle:Backend/Order:filterForm.html.twig
-
 sylius_backend_order_show:
     pattern: /{id}
     methods: [GET]
@@ -65,3 +58,9 @@ sylius_backend_order_by_user:
             template: SyliusWebBundle:Backend/Order:indexByUser.html.twig
             sortable: true
             sorting: { updatedAt: desc }
+
+sylius_backend_order_release_inventory:
+    pattern: /release-inventory/{id}
+    methods: [PUT]
+    defaults:
+        _controller: sylius.controller.order:releaseInventoryAction
